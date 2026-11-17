@@ -1,0 +1,287 @@
+[
+  {
+    "query": "why is the sky blue",
+    "articles": [
+      "Rayleigh scattering",
+      "Sky"
+    ]
+  },
+  {
+    "query": "how do plants use sunlight to make sugar",
+    "articles": [
+      "Photosynthesis"
+    ]
+  },
+  {
+    "query": "why do cats' pupils get narrow in daylight",
+    "articles": [
+      "Pupil"
+    ]
+  },
+  {
+    "query": "why do we only see one side of the moon",
+    "articles": [
+      "Tidal locking"
+    ]
+  },
+  {
+    "query": "why are some years one day longer than others",
+    "articles": [
+      "Leap year"
+    ]
+  },
+  {
+    "query": "what keeps the planets in orbit around the sun",
+    "articles": [
+      "Gravity"
+    ]
+  },
+  {
+    "query": "why do we hear a loud bang after lightning",
+    "articles": [
+      "Thunder"
+    ]
+  },
+  {
+    "query": "what makes the ground suddenly shake",
+    "articles": [
+      "Earthquake"
+    ]
+  },
+  {
+    "query": "why do sea levels rise and fall every day",
+    "articles": [
+      "Tide"
+    ]
+  },
+  {
+    "query": "how can moving seawater divide into large rotating streams",
+    "articles": [
+      "Ocean current"
+    ]
+  },
+  {
+    "query": "why does a compass needle point north",
+    "articles": [
+      "Earth's magnetic field"
+    ]
+  },
+  {
+    "query": "why do some people have trouble telling red from green",
+    "articles": [
+      "Color blindness",
+      "Colour blindness"
+    ]
+  },
+  {
+    "query": "what is it called when two differently spelled words sound alike",
+    "articles": [
+      "Homophone"
+    ]
+  },
+  {
+    "query": "how do honeybees tell each other where flowers are",
+    "articles": [
+      "Waggle dance"
+    ]
+  },
+  {
+    "query": "why can a metal boat float even though a metal coin sinks",
+    "articles": [
+      "Buoyancy",
+      "Archimedes' principle"
+    ]
+  },
+  {
+    "query": "how do shots help your body recognize germs",
+    "articles": [
+      "Vaccine",
+      "Vaccination"
+    ]
+  },
+  {
+    "query": "what makes bread dough puff up before baking",
+    "articles": [
+      "Yeast"
+    ]
+  },
+  {
+    "query": "what causes stars to produce energy by combining light atoms",
+    "articles": [
+      "Nuclear fusion"
+    ]
+  },
+  {
+    "query": "what is the dark area where gravity prevents light from escaping",
+    "articles": [
+      "Black hole"
+    ]
+  },
+  {
+    "query": "how do scientists know the universe is expanding",
+    "articles": [
+      "Expansion of the universe",
+      "Hubble's law"
+    ]
+  },
+  {
+    "query": "how do animals with helpful traits become more common over generations",
+    "articles": [
+      "Natural selection"
+    ]
+  },
+  {
+    "query": "what happens when a solid turns directly into a gas",
+    "articles": [
+      "Sublimation"
+    ]
+  },
+  {
+    "query": "why does adding salt help melt ice on a road",
+    "articles": [
+      "Freezing-point depression",
+      "Freezing point depression"
+    ]
+  },
+  {
+    "query": "what makes a rainbow appear after it rains",
+    "articles": [
+      "Rainbow"
+    ]
+  },
+  {
+    "query": "what carries instructions from genes to the machinery that makes proteins",
+    "articles": [
+      "Messenger RNA",
+      "RNA"
+    ]
+  },
+  {
+    "query": "how does sound return from a wall a moment after you shout",
+    "articles": [
+      "Echo"
+    ]
+  },
+  {
+    "query": "what do you call a number that can be divided only by itself and one",
+    "articles": [
+      "Prime number"
+    ]
+  },
+  {
+    "query": "what theorem gives the length of the longest side of a right triangle",
+    "articles": [
+      "Pythagorean theorem",
+      "Pythagoras' theorem"
+    ]
+  },
+  {
+    "query": "what lets computers find a value by repeatedly cutting a sorted list in half",
+    "articles": [
+      "Binary search",
+      "Binary search algorithm"
+    ]
+  },
+  {
+    "query": "what is keeping a computer system working when a component breaks called",
+    "articles": [
+      "Fault tolerance",
+      "Fault-tolerant computer system"
+    ]
+  },
+  {
+    "query": "what historical event began with an attack on a Paris prison in 1789",
+    "articles": [
+      "French Revolution",
+      "Storming of the Bastille"
+    ]
+  },
+  {
+    "query": "what is the name of the ancient trade route connecting China to Europe",
+    "articles": [
+      "Silk Road"
+    ]
+  },
+  {
+    "query": "which mathematical constant relates a circle's distance around to its width",
+    "articles": [
+      "Pi"
+    ]
+  },
+  {
+    "query": "why is it possible for a full moon to turn red when the earth blocks sunlight",
+    "articles": [
+      "Lunar eclipse"
+    ]
+  },
+  {
+    "query": "what is it called when an animal closely resembles its surroundings",
+    "articles": [
+      "Camouflage"
+    ]
+  },
+  {
+    "query": "how do some mammals navigate in the dark by listening for reflected sounds",
+    "articles": [
+      "Echolocation",
+      "Animal echolocation"
+    ]
+  },
+  {
+    "query": "why does our planet have colder and warmer parts of the year",
+    "articles": [
+      "Season",
+      "Axial tilt"
+    ]
+  },
+  {
+    "query": "what do you call a material that carries electricity with zero resistance when cold",
+    "articles": [
+      "Superconductivity",
+      "Superconductor"
+    ]
+  },
+  {
+    "query": "which rock forms when molten rock cools down",
+    "articles": [
+      "Igneous rock"
+    ]
+  },
+  {
+    "query": "what is the scale used to describe how acidic or basic a solution is",
+    "articles": [
+      "PH",
+      "pH"
+    ]
+  },
+  {
+    "query": "what process turns a liquid into a vapor at its surface",
+    "articles": [
+      "Evaporation"
+    ]
+  },
+  {
+    "query": "why do airborne particles act as though they are moving randomly",
+    "articles": [
+      "Brownian motion"
+    ]
+  },
+  {
+    "query": "what is a tree diagram of how living organisms are related called",
+    "articles": [
+      "Phylogenetic tree"
+    ]
+  },
+  {
+    "query": "which gas makes up most of the air we breathe",
+    "articles": [
+      "Nitrogen"
+    ]
+  },
+  {
+    "query": "what change in a wave makes an ambulance siren sound higher as it approaches",
+    "articles": [
+      "Doppler effect"
+    ]
+  }
+]
