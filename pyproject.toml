@@ -1,0 +1,25 @@
+[project]
+name = "wikilens-api"
+version = "1.0.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "fastapi==0.116.1",
+  "uvicorn==0.35.0",
+  "psycopg[binary,pool]==3.2.10",
+  "pgvector==0.4.1",
+  "sentence-transformers==5.1.2",
+  "cachetools==6.2.1",
+  "python-dotenv==1.1.1",
+  "torch==2.8.0",
+]
+
+[tool.vercel]
+entrypoint = "search.api:app"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
