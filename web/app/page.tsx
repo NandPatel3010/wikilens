@@ -41,14 +41,13 @@ async function api<T>(resource: string, signal?: AbortSignal): Promise<T> {
   return data as T;
 }
 
-function Icon({ name }: { name: "search" | "out" | "brand" | "chart" }) {
-  return <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-    strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
-    {name === "search" && <><circle cx="10.8" cy="10.8" r="6.2" /><path d="m15.3 15.3 4.5 4.5" /></>}
-    {name === "out" && <path d="M6 18 18 6M8 6h10v10" />}
-    {name === "brand" && <><path d="m12 2.8 8.3 4.7v9L12 21.2l-8.3-4.7v-9L12 2.8Z" /><path d="m4 7.5 8 4.6 8-4.6M12 12v9" /></>}
-    {name === "chart" && <path d="M4 4v16h16M9 16v-4m5 4V8m5 8V5" />}
-  </svg>;
+function Loading({ label }: { label: string }) {
+  return <div className="loading" role="status">
+    <p>{label}</p>
+    <div aria-hidden="true">
+      {[0, 1, 2].map((item) => <div className="skeleton-row" key={item}><span /><span /><span /></div>)}
+    </div>
+  </div>;
 }
 
 function Snippet({ text, query }: { text: string; query: string }) {
@@ -72,13 +71,13 @@ function BenchmarkPanel() {
   }, []);
 
   return <section className="benchmark" aria-labelledby="benchmark-title">
-    <h2 id="benchmark-title">Retrieval benchmark</h2>
+    <h1 id="benchmark-title">Retrieval benchmark</h1>
     {error ? <p role="alert" className="error">{error}</p> : !data ? <p role="status">Loading benchmark…</p> : !data.available ?
-      <p>No benchmark report has been generated. Run <code>python -m search.evaluate</code> from the project directory.</p> :
+      <p>The published report is available in the <a href="https://github.com/NandPatel3010/wikilens/actions/runs/44040068459">GitHub benchmark run</a>.</p> :
       <>
         <p>{data.queries} labeled questions over {data.documents.toLocaleString()} articles and {data.passages.toLocaleString()} passages.</p>
         <div className="precision">
-          <h3>Precision@10</h3>
+          <h2>Precision@10</h2>
           {modes.map((mode) => {
             const value = data.modes[mode].precision_at_10 * 100;
             return <div key={mode} className="bar-row">
@@ -165,78 +164,97 @@ export default function Page() {
   return <>
     <header className="site-header">
       <div className="header-inner">
-        <button type="button" className="brand" onClick={() => setTab("search")}><span><Icon name="brand" /></span>WikiLens</button>
+        <button type="button" className="brand" onClick={() => setTab("search")}>WikiLens</button>
         <nav aria-label="Views">
-          <button type="button" aria-current={tab === "search" ? "page" : undefined} onClick={() => setTab("search")}><Icon name="search" /> Search</button>
-          <button type="button" aria-current={tab === "benchmark" ? "page" : undefined} onClick={() => setTab("benchmark")}><Icon name="chart" /> Benchmark</button>
+          <button type="button" aria-current={tab === "search" ? "page" : undefined} onClick={() => setTab("search")}>Search</button>
+          <button type="button" aria-current={tab === "benchmark" ? "page" : undefined} onClick={() => setTab("benchmark")}>Benchmark</button>
         </nav>
       </div>
     </header>
 
-    <main>
+    <main className="content">
       {tab === "benchmark" ? <BenchmarkPanel /> : <>
-        <section className="hero" aria-labelledby="title">
-          <p className="source"><span /> SIMPLE ENGLISH WIKIPEDIA{count !== undefined && <> <b>·</b> {count.toLocaleString()} ARTICLES</>}</p>
-          <h1 id="title">Search Wikipedia by meaning.</h1>
-          <p className="intro">Ask a question in your own words and find relevant passages.</p>
-          <form className="search-form" onSubmit={submit}>
-            <Icon name="search" />
-            <input aria-label="Wikipedia search query" placeholder="Why is the sky blue?" required maxLength={500}
+        <section className="search-section" aria-labelledby="title">
+          <div className="collection">
+            <a href="https://simple.wikipedia.org/">Simple English Wikipedia</a>
+            <span>November 2023 snapshot</span>
+          </div>
+          <h1 id="title">Search the encyclopedia.</h1>
+          <form className="search-form" role="search" onSubmit={submit}>
+            <label className="sr-only" htmlFor="query">Wikipedia search query</label>
+            <input id="query" placeholder="Enter a topic or question" required maxLength={500}
               value={input} onChange={(event) => setInput(event.target.value)} />
             <button type="submit" disabled={!input.trim()}>Search</button>
           </form>
-          <div className="examples" aria-label="Example queries">
-            {examples.map((example) => <button type="button" key={example} onClick={() => {
-              setInput(example);
-              void search(example, mode);
-            }}>{example}</button>)}
-          </div>
-        </section>
-
-        <div className="search-body">
-          <aside>
-            <fieldset>
-              <legend>Retrieval mode</legend>
+          <fieldset className="mode-controls">
+            <legend className="sr-only">Retrieval mode</legend>
+            <div className="modes">
               {modes.map((option) => <label key={option} className="mode">
-                <input type="radio" name="mode" checked={mode === option} onChange={() => {
+                <input className="sr-only" type="radio" name="mode" checked={mode === option} onChange={() => {
                   setMode(option);
                   if (input.trim()) void search(input, option);
                 }} />
-                <span><strong>{labels[option]}</strong><small>{descriptions[option]}</small></span>
+                <span>{labels[option]}</span>
               </label>)}
-            </fieldset>
-          </aside>
-          <section className="results" aria-label="Search results" aria-busy={pending}>
-            {pending && <p className="status" role="status">Searching Wikipedia…</p>}
-            {error && <p className="error" role="alert">{error}</p>}
-            {!pending && result && <>
-              <div className="results-meta" role="status">
-                <strong>{result.total} ranked {result.total === 1 ? "article" : "articles"}</strong>
-                <span>{result.latency_ms} ms{result.cache_hit ? " · cached" : ""}</span>
-              </div>
-              {result.results.length === 0 && <p className="status">No articles found for this query.</p>}
-              <ol role="list" start={(result.page - 1) * result.page_size + 1}>
-                {result.results.map((hit) => <li key={hit.id}>
-                  <div className="result-head">
-                    <h2><a href={hit.url} target="_blank" rel="noreferrer">{hit.title} <Icon name="out" /></a></h2>
-                    <span className="score">{scoreLabels[result.mode]} <strong>{hit.score.toFixed(3)}</strong></span>
-                  </div>
-                  <p><Snippet text={hit.text} query={result.query} /></p>
-                </li>)}
-              </ol>
-              {(result.has_next || result.page > 1) && <div className="pagination" aria-label="Result pages">
-                <button type="button" disabled={result.page === 1} onClick={() => void search(result.query, result.mode, result.page - 1)}>Previous</button>
-                <span>Page {result.page} of {Math.max(1, Math.ceil(result.total / result.page_size))}</span>
-                <button type="button" disabled={!result.has_next} onClick={() => void search(result.query, result.mode, result.page + 1)}>Next</button>
-              </div>}
-            </>}
-            {!pending && !result && !error && <p className="status">Results appear here when you search.</p>}
-          </section>
-        </div>
+            </div>
+            <p>{descriptions[mode]}</p>
+          </fieldset>
+        </section>
+
+        <section className="results" aria-label="Search results">
+          {pending && <Loading label="Searching Wikipedia." />}
+          {error && <p className="error" role="alert">{error}</p>}
+          {!pending && result && <>
+            <div className="results-meta" role="status">
+              <h2>{result.total} ranked {result.total === 1 ? "article" : "articles"}</h2>
+              <span>{result.latency_ms} ms{result.cache_hit ? " (cached)" : ""}</span>
+            </div>
+            {result.results.length === 0 && <p className="status">No articles found. Try a shorter query or another search mode.</p>}
+            {result.results.length > 0 && <ol className="result-list" role="list" start={(result.page - 1) * result.page_size + 1}>
+              {result.results.map((hit) => <li key={hit.id}>
+                <div className="result-head">
+                  <h3><a href={hit.url} target="_blank" rel="noreferrer">{hit.title}</a></h3>
+                  <span className="score">{scoreLabels[result.mode]} {hit.score.toFixed(3)}</span>
+                </div>
+                <p><Snippet text={hit.text} query={result.query} /></p>
+              </li>)}
+            </ol>}
+            {(result.has_next || result.page > 1) && <div className="pagination" aria-label="Result pages">
+              <button type="button" disabled={result.page === 1} onClick={() => void search(result.query, result.mode, result.page - 1)}>Previous</button>
+              <span>Page {result.page} of {Math.max(1, Math.ceil(result.total / result.page_size))}</span>
+              <button type="button" disabled={!result.has_next} onClick={() => void search(result.query, result.mode, result.page + 1)}>Next</button>
+            </div>}
+          </>}
+          {!pending && !result && !error && <div className="empty-state">
+            <div className="results-meta">
+              <h2>Try a search</h2>
+              {count !== undefined && <span>{count.toLocaleString()} indexed articles</span>}
+            </div>
+            <ul className="examples">
+              {examples.map((example) => <li key={example}><button type="button" onClick={() => {
+                setInput(example);
+                void search(example, mode);
+              }}>{example}</button></li>)}
+            </ul>
+          </div>}
+        </section>
       </>}
     </main>
 
-    <footer><a href="https://simple.wikipedia.org/" target="_blank" rel="noreferrer">Simple English Wikipedia</a>
-      <span>Snapshot · November 2023</span></footer>
+    <footer className="site-footer">
+      <div className="footer-inner">
+        <a href="https://simple.wikipedia.org/">Article source</a>
+        <details>
+          <summary>Terms of use</summary>
+          <p>WikiLens is an independent search tool. Results contain excerpts from Simple English Wikipedia. Follow the article link for its contributors, source text, and license information.</p>
+          <a href="https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use">Wikimedia Terms of Use</a>
+        </details>
+        <details>
+          <summary>Privacy policy</summary>
+          <p>Search works without an account. Queries are sent to the WikiLens API and appear in the page URL. That URL can be saved in browser history or included when you share a link. Vercel hosts the site and API and can process technical request information.</p>
+          <a href="https://vercel.com/legal/privacy-notice">Vercel Privacy Notice</a>
+        </details>
+      </div>
+    </footer>
   </>;
 }
