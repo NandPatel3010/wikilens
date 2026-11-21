@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ res
   }
   try {
     const upstream = new URL(base.replace(/\/$/, "") + "/" + resource);
-    for (const key of ["q", "mode", "page", "page_size"]) {
+    for (const key of ["q", "mode", "page", "page_size", "allow_fallback"]) {
       const value = request.nextUrl.searchParams.get(key);
       if (resource === "search" && value !== null) upstream.searchParams.set(key, value);
     }
