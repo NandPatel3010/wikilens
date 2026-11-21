@@ -23,7 +23,8 @@ def render_markdown(report):
     rows = [
         "# Wikipedia retrieval benchmark",
         "",
-        f"{report['queries']} labeled questions over {report['documents']:,} documents. "
+        f"{report['queries']} labeled questions over {report['documents']:,} documents "
+        f"using the {report.get('index_profile', 'plain')} index. "
         "Latency measures the retrieval service in-process, including the database round trip on cache misses.",
         "",
         "| Mode | Precision@10 | Recall@10 | MRR@10 | nDCG@10 | Cache-miss p50 | Cache-miss p95 | Cache-hit p50 |",
@@ -41,7 +42,8 @@ def render_markdown(report):
     return "\n".join(rows) + "\n"
 
 
-def evaluate(data, output):
+def evaluate(data, output, *, expected_profile=None):
+    from .chunks import INDEX_PROFILES
     from .engine import Engine, MODES
     from .models import Models
     from hashlib import file_digest
@@ -69,9 +71,12 @@ def evaluate(data, output):
     try:
         pool.open(wait=True, timeout=30)
         store = Store(pool)
-        counts = store.counts()
-        if store.fingerprint() != fingerprint:
+        state = store.index_state()
+        if state is None or state["fingerprint"] != fingerprint:
             raise ValueError("Index does not match the selected benchmark corpus. Run ingestion.")
+        profile = state["profile"]
+        if profile not in INDEX_PROFILES or (expected_profile and profile != expected_profile):
+            raise ValueError(f"Unexpected index profile {profile!r}. Reindex with the requested profile.")
         engine = Engine(store, Models())
         for mode in MODES:
             # Warm initialization with a query outside the judged test set.
@@ -97,14 +102,15 @@ def evaluate(data, output):
                 ))
             if index % 25 == 0:
                 print(f"Evaluated {index}/{len(qrels)} queries.", flush=True)
-        if store.fingerprint() != fingerprint:
+        if store.index_state() != state:
             raise RuntimeError("The index changed during evaluation. Run the benchmark again.")
     finally:
         pool.close()
 
     report = {
         "dataset": DATASET, "snapshot": CONFIG, "dataset_revision": DATASET_REVISION,
-        "queries": len(qrels), **counts,
+        "queries": len(qrels), "documents": state["documents"], "passages": state["passages"],
+        "index_profile": profile,
         "unmatched_questions": unmatched, "corpus_sha256": fingerprint,
         "candidate_depth": CANDIDATE_DEPTH, "embedding_model": f"{EMBEDDER}@{EMBEDDER_REVISION}",
         "reranker": f"{RERANKER}@{RERANKER_REVISION}", "platform": platform.platform(), "modes": {},
@@ -124,8 +130,11 @@ def evaluate(data, output):
 
 
 if __name__ == "__main__":
+    from .chunks import INDEX_PROFILES
+
     parser = argparse.ArgumentParser(description="Evaluate all retrieval modes on labeled Wikipedia questions.")
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--output", type=Path, default=REPORT_PATH)
+    parser.add_argument("--profile", choices=INDEX_PROFILES, help="Require an active index with this profile.")
     args = parser.parse_args()
-    evaluate(args.data, args.output)
+    evaluate(args.data, args.output, expected_profile=args.profile)
