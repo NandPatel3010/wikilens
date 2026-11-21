@@ -63,7 +63,7 @@ python -m search.ingest
 python -m search.evaluate
 ```
 
-The first run downloads the dataset and model weights. Ingestion stores vectors in `data/embeddings.sqlite3` by model revision and exact input text. Repeated runs reuse cached vectors, including overlapping records when the corpus scales from 5,000 to 50,000 articles. The import commits the document and passage snapshot together. Restart the API after changing the corpus to refresh its in-process cache.
+The first run downloads the dataset and model weights. Ingestion stores vectors in `data/embeddings.sqlite3` by model revision and exact input text. Repeated runs reuse cached vectors, including overlapping records when the corpus scales from 5,000 to 50,000 articles. The API uses a fresh cache namespace after each index activation.
 
 ### 4. Start the API and frontend
 
@@ -86,6 +86,40 @@ npm run dev
 - `GET /search?q=why+is+the+sky+blue&mode=reranked&page=1&page_size=8` returns ranked articles and timing. Modes are `keyword`, `semantic`, and `reranked`.
 - `GET /benchmark` returns the generated report when its corpus fingerprint matches the running index.
 
+## Search under load
+
+The CPU cross-encoder processes one ranking at a time. When its slot is busy, a new first-page reranked search can return semantic results from pgvector. This follows the priority model in [Netflix's service-level load shedding write-up](https://netflixtechblog.com/enhancing-netflix-reliability-with-service-level-prioritized-load-shedding-e735e6ce8f7d), with search treated as essential and reranking as optional. The protection is per worker, and embedding and database capacity still limit throughput.
+
+`mode` reports the requested ranking and `effective_mode` reports the ranking actually served. The UI labels semantic fallback and uses `effective_mode` with `allow_fallback=false` for page navigation. This keeps the ranking method consistent if a cached result expires. Cached reranked results remain eligible during busy periods.
+
+With a local corpus, compare `SEARCH_SHED_RERANKING=0` and `SEARCH_SHED_RERANKING=1`. Restart the single-worker API with each setting, make one warm-up query outside the benchmark set, then run the same cold-cache burst once per restart.
+
+```text
+python scripts/benchmark_overload.py --requests 16
+```
+
+The report shows the number of requests served by each mode, errors, and p95 HTTP latency among successful responses. Check the cache-hit count before comparing runs. The retrieval quality benchmark continues to evaluate each mode independently.
+
+## Contextual retrieval and recovery
+
+The `plain` profile embeds each passage with its title. The `contextual` profile also supplies a short extract from the article opening to later passages. It uses the source text as context and reserves room in the model's token budget. The UI still shows the original passage. This adapts the contextual embeddings idea from [Anthropic's retrieval write-up](https://www.anthropic.com/research/contextual-retrieval).
+
+Use the same corpus and labeled questions for both profiles to measure the Recall@10 and latency tradeoffs.
+
+```text
+python -m search.ingest --profile plain
+python -m search.evaluate --profile plain --output benchmark/comparison/plain.json
+python -m search.ingest --profile contextual
+python -m search.evaluate --profile contextual --output benchmark/comparison/contextual.json
+python scripts/compare_benchmarks.py benchmark/comparison/plain.json benchmark/comparison/contextual.json
+```
+
+The database retains the previous snapshot when a different corpus or profile is activated. Ingestion checks the candidate's row counts, document coverage, and vectors before committing. If validation fails, the active index stays in service. If a candidate passes those checks and later performs poorly, restore the previous snapshot with `python -m search.ingest --rollback`. This applies the [last-known-good approach used by Cloudflare](https://blog.cloudflare.com/code-orange-fail-small-complete/). `/health` reports the live profile and document count. `/benchmark` serves a report for the active corpus and profile.
+
+## Performance regression checks
+
+The pull request workflow evaluates the base revision and the candidate against the same plain index and labeled questions on one runner. It reports Recall@10 and cache-miss p95 for each mode. The check fails if any mode's p95 increases by more than the greater of **25% or 15 ms**. The workflow also saves both HTTP burst reports, publishes a plain-versus-contextual comparison, and verifies recovery against its disposable database. The comparison follows the regression-detection idea in [OpenAI's Performance Factory write-up](https://openai.com/index/how-openai-performance-factory-keeps-chatgpt-fast/).
+
 ## Architecture
 
 ```mermaid
@@ -105,7 +139,7 @@ flowchart TD
 
 ## Deployment
 
-1. Create the Supabase schema and index the corpus using its session connection. Run the benchmark against the intended production corpus.
+1. Apply [db/schema.sql](db/schema.sql) to the database before deploying this API or running ingestion. The schema upgrade preserves an existing live index. Index the corpus using Supabase's session connection and run the benchmark against the intended production corpus and profile.
 2. Deploy the root Dockerfile to a Python host such as Railway or Render. Set `DATABASE_URL` and a private `SEARCH_API_TOKEN`. Configure the health check at `/health` and allow startup time to load both models. Keep `benchmark/results.json` in the build context to serve the measured report.
 3. Import the same project into Vercel with `web` as its root directory. Set server-side `SEARCH_API_URL` to the hosted FastAPI URL and `SEARCH_API_TOKEN` to the same backend token. Next.js forwards the token from the server so browsers interact only with the first-party route.
 

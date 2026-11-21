@@ -4,6 +4,7 @@
 __pycache__/
 *.pyc
 data/
+benchmark/comparison/
 node_modules/
 .next/
 tsconfig.tsbuildinfo

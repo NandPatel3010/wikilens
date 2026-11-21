@@ -20,6 +20,7 @@ const examples = [
 type Hit = { id: string; title: string; text: string; url: string; score: number };
 type ResultPage = {
   query: string; mode: Mode; total: number; page: number; page_size: number;
+  effective_mode?: Mode;
   has_next: boolean; latency_ms: number; cache_hit: boolean; results: Hit[];
 };
 type Timing = { p50_ms: number; p95_ms: number };
@@ -29,6 +30,7 @@ type Stats = {
 };
 type Benchmark = { available: false } | {
   available: true; queries: number; documents: number; passages: number;
+  index_profile?: "plain" | "contextual";
   modes: Record<Mode, Stats>; unmatched_questions: string[];
 };
 
@@ -73,9 +75,9 @@ function BenchmarkPanel() {
   return <section className="benchmark" aria-labelledby="benchmark-title">
     <h1 id="benchmark-title">Retrieval benchmark</h1>
     {error ? <p role="alert" className="error">{error}</p> : !data ? <p role="status">Loading benchmark…</p> : !data.available ?
-      <p>The published report is available in the <a href="https://github.com/NandPatel3010/wikilens/actions/runs/44040068459">GitHub benchmark run</a>.</p> :
+      <p>The published plain-index report is available in the <a href="https://github.com/NandPatel3010/wikilens/actions/runs/44040068459">GitHub benchmark run</a>.</p> :
       <>
-        <p>{data.queries} labeled questions over {data.documents.toLocaleString()} articles and {data.passages.toLocaleString()} passages.</p>
+        <p>{data.queries} labeled questions over {data.documents.toLocaleString()} articles and {data.passages.toLocaleString()} passages using the {data.index_profile ?? "plain"} index.</p>
         <div className="precision">
           <h2>Precision@10</h2>
           {modes.map((mode) => {
@@ -115,8 +117,9 @@ export default function Page() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const request = useRef<AbortController | null>(null);
+  const effectiveMode = result?.effective_mode ?? result?.mode;
 
-  const search = useCallback(async (query: string, selected: Mode, page = 1) => {
+  const search = useCallback(async (query: string, selected: Mode, page = 1, allowFallback = true) => {
     const q = query.trim();
     if (!q) return;
     request.current?.abort();
@@ -128,6 +131,7 @@ export default function Page() {
     setTab("search");
     setMode(selected);
     const params = new URLSearchParams({ q, mode: selected, page: String(page) });
+    if (!allowFallback) params.set("allow_fallback", "false");
     window.history.replaceState(null, "", "?" + params.toString());
     try {
       const data = await api<ResultPage>("search?" + params.toString(), controller.signal);
@@ -151,7 +155,8 @@ export default function Page() {
       const savedPage = Number(params.get("page"));
       const validPage = Number.isInteger(savedPage) && savedPage >= 1 && savedPage <= 7 ? savedPage : 1;
       setInput(saved.slice(0, 500));
-      void search(saved.slice(0, 500), modes.includes(savedMode) ? savedMode : "reranked", validPage);
+      void search(saved.slice(0, 500), modes.includes(savedMode) ? savedMode : "reranked",
+        validPage, params.get("allow_fallback") !== "false");
     }
     return () => { controller.abort(); request.current?.abort(); };
   }, [search]);
@@ -204,25 +209,28 @@ export default function Page() {
         <section className="results" aria-label="Search results">
           {pending && <Loading label="Searching Wikipedia." />}
           {error && <p className="error" role="alert">{error}</p>}
-          {!pending && result && <>
+          {!pending && result && effectiveMode && <>
             <div className="results-meta" role="status">
               <h2>{result.total} ranked {result.total === 1 ? "article" : "articles"}</h2>
               <span>{result.latency_ms} ms{result.cache_hit ? " (cached)" : ""}</span>
             </div>
+            {effectiveMode !== result.mode && <p className="status" role="status">
+              Reranking is busy. Showing semantic results.
+            </p>}
             {result.results.length === 0 && <p className="status">No articles found. Try a shorter query or another search mode.</p>}
             {result.results.length > 0 && <ol className="result-list" role="list" start={(result.page - 1) * result.page_size + 1}>
               {result.results.map((hit) => <li key={hit.id}>
                 <div className="result-head">
                   <h3><a href={hit.url} target="_blank" rel="noreferrer">{hit.title}</a></h3>
-                  <span className="score">{scoreLabels[result.mode]} {hit.score.toFixed(3)}</span>
+                  <span className="score">{scoreLabels[effectiveMode]} {hit.score.toFixed(3)}</span>
                 </div>
                 <p><Snippet text={hit.text} query={result.query} /></p>
               </li>)}
             </ol>}
             {(result.has_next || result.page > 1) && <div className="pagination" aria-label="Result pages">
-              <button type="button" disabled={result.page === 1} onClick={() => void search(result.query, result.mode, result.page - 1)}>Previous</button>
+              <button type="button" disabled={result.page === 1} onClick={() => void search(result.query, effectiveMode, result.page - 1, false)}>Previous</button>
               <span>Page {result.page} of {Math.max(1, Math.ceil(result.total / result.page_size))}</span>
-              <button type="button" disabled={!result.has_next} onClick={() => void search(result.query, result.mode, result.page + 1)}>Next</button>
+              <button type="button" disabled={!result.has_next} onClick={() => void search(result.query, effectiveMode, result.page + 1, false)}>Next</button>
             </div>}
           </>}
           {!pending && !result && !error && <div className="empty-state">

@@ -103,6 +103,13 @@ class Store:
             row = connection.execute("SELECT fingerprint FROM evidence.index_state").fetchone()
         return row["fingerprint"] if row else None
 
+    def index_state(self):
+        with self.pool.connection() as connection:
+            return connection.execute("""
+                SELECT fingerprint, profile, generation, document_count AS documents,
+                       passage_count AS passages FROM evidence.index_state
+            """).fetchone()
+
     def keyword(self, query, depth):
         with self.pool.connection() as connection:
             rows = connection.execute(KEYWORD_SQL, {"query": query, "depth": depth}).fetchall()
