@@ -25,6 +25,18 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual(chunks, [("a b c d", "Paper\na b c d"),
                                   ("d e f g", "Paper\nd e f g")])
 
+    def test_contextual_embeddings_keep_original_snippets_and_respect_budget(self):
+        tokenizer = Tokenizer()
+        body = "Mercury orbits closest to the Sun and moves quickly " + " ".join(f"word{i}" for i in range(25))
+        plain = list(chunk_article("Mercury", body, tokenizer, 16, overlap=2))
+        contextual = list(chunk_article("Mercury", body, tokenizer, 16, overlap=2, contextual=True))
+        self.assertEqual(contextual[0], plain[0])
+        self.assertGreater(len(contextual), 1)
+        for snippet, model_input in contextual[1:]:
+            self.assertIn(snippet, body)
+            self.assertEqual(model_input, "Mercury\nMercury orbits closest\n" + snippet)
+            self.assertLessEqual(len(tokenizer.encode(model_input)), 16)
+
     def test_metrics_use_document_ranks_and_fixed_precision_denominator(self):
         scores = retrieval_metrics(["wrong", "partial", "partial", "strong"],
                                    {"partial": 1, "strong": 2, "missed": 1}, k=5)
