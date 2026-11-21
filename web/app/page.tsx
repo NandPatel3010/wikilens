@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { selectExcerpt } from "./excerpt";
 
 const modes = ["keyword", "semantic", "reranked"] as const;
 type Mode = (typeof modes)[number];
@@ -53,12 +54,14 @@ function Loading({ label }: { label: string }) {
 }
 
 function Snippet({ text, query }: { text: string; query: string }) {
-  const words = Array.from(query.toLowerCase().matchAll(/[\p{L}\p{N}]{3,}/gu), (part) => part[0]);
-  const stop = new Set(["why", "how", "the", "what", "when", "does", "and", "with", "its", "for", "from", "can", "are"]);
-  const terms = [...new Set(words.filter((word) => !stop.has(word)))].slice(0, 30);
-  if (!terms.length) return text;
-  const delimited = new RegExp("(?<![\\p{L}\\p{N}])(" + terms.join("|") + ")(?![\\p{L}\\p{N}])", "giu");
-  return text.split(delimited).map((part, index) => index % 2 ? <mark key={index}>{part}</mark> : part);
+  const { focus, context, matched, hasMore } = selectExcerpt(text, query);
+  return <>
+    <p>{matched ? <mark className="excerpt-match">{focus}</mark> : focus}{context && ` ${context}`}</p>
+    {hasMore && <details className="full-passage">
+      <summary>Full passage</summary>
+      <p>{text}</p>
+    </details>}
+  </>;
 }
 
 function BenchmarkPanel() {
@@ -224,7 +227,7 @@ export default function Page() {
                   <h3><a href={hit.url} target="_blank" rel="noreferrer">{hit.title}</a></h3>
                   <span className="score">{scoreLabels[effectiveMode]} {hit.score.toFixed(3)}</span>
                 </div>
-                <p><Snippet text={hit.text} query={result.query} /></p>
+                <Snippet text={hit.text} query={result.query} />
               </li>)}
             </ol>}
             {(result.has_next || result.page > 1) && <div className="pagination" aria-label="Result pages">

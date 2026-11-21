@@ -135,7 +135,15 @@ nav button[aria-current] { border-color: var(--accent); color: var(--accent); fo
 .result-head a { color: var(--ink); text-decoration-color: var(--rule); }
 .result-head a:hover { text-decoration-color: var(--accent); }
 .result-list li p { margin-top: 7px; max-width: 72ch; overflow-wrap: anywhere; }
-mark { color: var(--ink); background: #e8dfc8; }
+.excerpt-match {
+  color: inherit;
+  background: transparent;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+.full-passage { margin-top: 8px; }
+.full-passage summary { color: var(--quiet); cursor: pointer; font-size: 0.875rem; }
 .status, .error { margin-top: 13px; }
 .error { color: var(--accent); }
 .skeleton-row { padding: 19px 0; border-bottom: 1px solid var(--light-rule); }
