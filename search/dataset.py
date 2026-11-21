@@ -25,8 +25,8 @@ def title_key(title):
     return " ".join(unicodedata.normalize("NFKC", title).replace("_", " ").casefold().split())
 
 
-def questions():
-    return json.loads(QUESTIONS.read_text(encoding="utf-8"))
+def questions(path=QUESTIONS):
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def sample_articles(source, count, target_titles):
@@ -64,10 +64,13 @@ def sample_articles(source, count, target_titles):
     return [chosen[row_id] for row_id in sorted(chosen)]
 
 
-def download(path, count):
+def download(path, count, *, extra_questions=None):
     from datasets import load_dataset
 
-    titles = {title_key(title) for case in questions() for title in case["articles"]}
+    cases = questions()
+    if extra_questions is not None:
+        cases.extend(questions(extra_questions))
+    titles = {title_key(title) for case in cases for title in case["articles"]}
     source = load_dataset(DATASET, CONFIG, revision=DATASET_REVISION, split="train", streaming=True)
     articles = sample_articles(source, count, titles)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -92,9 +95,12 @@ def download(path, count):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Sample the Simple English Wikipedia snapshot.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_DATA)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--articles", type=int, default=5000)
+    parser.add_argument("--extra-questions", type=Path, help="Include these potential answer articles in the sample.")
     args = parser.parse_args()
     if not 100 <= args.articles <= 50000:
         parser.error("--articles must be between 100 and 50000.")
-    download(args.output, args.articles)
+    if args.extra_questions and (args.output is None or args.output.resolve() == DEFAULT_DATA.resolve()):
+        parser.error("Use a separate --output path when adding benchmark questions to the sample.")
+    download(args.output or DEFAULT_DATA, args.articles, extra_questions=args.extra_questions)
