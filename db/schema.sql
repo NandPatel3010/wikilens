@@ -31,6 +31,21 @@ BEGIN
         singleton boolean PRIMARY KEY CHECK (singleton),
         fingerprint text NOT NULL
     );
+    ALTER TABLE evidence.index_state ADD COLUMN IF NOT EXISTS generation bigint NOT NULL DEFAULT 0;
+    ALTER TABLE evidence.index_state ADD COLUMN IF NOT EXISTS profile text NOT NULL DEFAULT 'plain';
+    ALTER TABLE evidence.index_state ADD COLUMN IF NOT EXISTS document_count bigint;
+    ALTER TABLE evidence.index_state ADD COLUMN IF NOT EXISTS passage_count bigint;
+    UPDATE evidence.index_state SET
+        document_count = (SELECT count(*) FROM evidence.documents),
+        passage_count = (SELECT count(*) FROM evidence.passages)
+    WHERE document_count IS NULL OR passage_count IS NULL;
+    -- The backup needs source rows only. Generated columns and ANN indexes stay on the live tables.
+    CREATE TABLE IF NOT EXISTS evidence.previous_documents AS
+        SELECT id, title, body, source_url FROM evidence.documents WITH NO DATA;
+    CREATE TABLE IF NOT EXISTS evidence.previous_passages AS
+        SELECT document_id, ordinal, passage, embedding FROM evidence.passages WITH NO DATA;
+    CREATE TABLE IF NOT EXISTS evidence.previous_index_state AS
+        SELECT fingerprint, profile FROM evidence.index_state WITH NO DATA;
     CREATE INDEX IF NOT EXISTS passages_cosine_idx ON evidence.passages
         USING hnsw (embedding vector_cosine_ops);
     CREATE INDEX IF NOT EXISTS search_terms_idx ON evidence.documents
