@@ -1,0 +1,95 @@
+name: Search benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'search/**'
+      - 'db/**'
+      - 'benchmark/**'
+      - 'tests/**'
+      - 'scripts/benchmark_overload.py'
+      - 'scripts/compare_benchmarks.py'
+      - 'requirements*.txt'
+      - '.github/workflows/search-benchmarks.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: search
+          POSTGRES_USER: search
+          POSTGRES_PASSWORD: search
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U search -d search"
+          --health-interval 3s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgresql://search:search@127.0.0.1:5432/search
+      SEARCH_TORCH_THREADS: '2'
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CPU dependencies and test
+        run: |
+          python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-ingest.txt
+          python -m unittest discover -s tests -v
+      - name: Prepare a shared plain index
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/wikilens-base" "$BASE_SHA"
+          cmp benchmark/questions.json "$RUNNER_TEMP/wikilens-base/benchmark/questions.json"
+          docker exec -i "$POSTGRES_CONTAINER" psql -U search -d search -v ON_ERROR_STOP=1 < db/schema.sql
+          python -m search.dataset --articles 5000
+          python -m search.ingest --profile plain
+      - name: Measure baseline and candidate on the same index
+        run: |
+          report_dir="$GITHUB_WORKSPACE/benchmark/comparison"
+          (
+            cd "$RUNNER_TEMP/wikilens-base"
+            python -m search.evaluate --data "$GITHUB_WORKSPACE/data/wikipedia.jsonl" --output "$report_dir/base.json"
+          )
+          python -m search.evaluate --profile plain --output "$report_dir/plain.json"
+      - name: Measure HTTP behavior under a burst
+        run: |
+          for setting in 0 1; do
+            SEARCH_SHED_RERANKING="$setting" python -m uvicorn search.api:app --host 127.0.0.1 --port 8000 &
+            server=$!
+            trap 'kill "$server" 2>/dev/null || true' EXIT
+            curl -fsS --retry 30 --retry-delay 2 --retry-connrefused http://127.0.0.1:8000/health
+            curl -fsS -G --data-urlencode 'q=what gives a tiger its pattern' http://127.0.0.1:8000/search > /dev/null
+            python scripts/benchmark_overload.py --requests 16 > "benchmark/comparison/overload-$setting.json"
+            kill "$server"
+            wait "$server" || true
+            trap - EXIT
+          done
+      - name: Evaluate contextual retrieval and verify index recovery
+        env:
+          WIKILENS_TEST_RELEASE: '1'
+        run: |
+          python -m search.ingest --profile contextual
+          python -m search.evaluate --profile contextual --output benchmark/comparison/contextual.json
+          python scripts/compare_benchmarks.py benchmark/comparison/plain.json benchmark/comparison/contextual.json --summary "$GITHUB_STEP_SUMMARY"
+          python -m unittest discover -s tests -p 'test_index_release.py' -v
+      - name: Check reranking and retrieval latency
+        run: python scripts/compare_benchmarks.py benchmark/comparison/base.json benchmark/comparison/plain.json --check-latency --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wikilens-search-benchmarks
+          path: benchmark/comparison/
