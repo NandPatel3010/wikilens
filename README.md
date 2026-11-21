@@ -16,6 +16,37 @@ The runner also measures cache-miss and cache-hit p50 and p95 latency. It warms 
 
 The sampler includes available labeled articles so the benchmark measures retrieval over a corpus that contains the intended answers. The remaining articles come from a deterministic sample of the November 2023 dump. Each label is a known relevant article, and the labels are incomplete. Precision@10 can be at most 0.10 on a query with a single judged relevant article. A missing label is reported and queries without an available target are excluded, with a minimum of 30 matched queries required to publish a report. The same corpus fingerprint, questions, and judgments apply to all three modes.
 
+### Holdout questions
+
+[`benchmark/holdout-questions.json`](benchmark/holdout-questions.json) contains 121 new queries for a separate evaluation. It includes exact article titles, paraphrased questions, and ambiguous terms with clues about the intended meaning. Twenty-two queries also describe what a useful excerpt should explain. Use those notes to judge the displayed excerpts by hand. The retrieval metrics use article labels.
+
+The [GitHub Actions run](https://github.com/NandPatel3010/wikilens/actions/runs/44951995291) scored 112 of 121 queries on a separate 5,000-article snapshot. The remaining nine had no labeled article available in the snapshot. The sampler includes available labeled articles, so these results measure ranking when a labeled answer is in the index.
+
+| Mode | Recall@10 | MRR@10 | nDCG@10 | Cache-miss p50 | Cache-miss p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Keyword | 70.83% | 0.4848 | 0.5262 | 12.8 ms | 30.4 ms |
+| Semantic | 98.07% | 0.9212 | 0.9236 | 30.4 ms | 55.2 ms |
+| Reranked | 98.36% | 0.9215 | 0.9287 | 1,601.8 ms | 1,673.7 ms |
+
+Reranked Recall@10 was 97.34% on 69 paraphrased queries and 100% on the 21 exact-title and 22 disambiguation queries that were scored. Latency is measured inside the service on the GitHub Actions runner with models already loaded. The reranked cache-hit p50 was 0.0157 ms.
+
+To count which answers are already present in a local corpus, run:
+
+```text
+python -m search.evaluate --questions benchmark/holdout-questions.json --coverage-only
+```
+
+To evaluate the full set, build a separate 5,000-article corpus that includes the available answer articles, and use a dedicated benchmark database with `db/schema.sql` applied:
+
+```text
+python -m search.dataset --articles 5000 --extra-questions benchmark/holdout-questions.json --output data/wikipedia-holdout.jsonl
+python -m search.evaluate --data data/wikipedia-holdout.jsonl --questions benchmark/holdout-questions.json --coverage-only
+python -m search.ingest --data data/wikipedia-holdout.jsonl
+python -m search.evaluate --data data/wikipedia-holdout.jsonl --questions benchmark/holdout-questions.json --output benchmark/comparison/holdout.json
+```
+
+The holdout run writes its own corpus and report fingerprints and scores the three retrieval modes on the same sample.
+
 ## Run locally
 
 Requires Python 3.12, Node.js 22+ with npm, internet access for initial downloads, and either Docker Desktop or a Supabase project.
